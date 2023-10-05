@@ -1,0 +1,62 @@
+# ----- units
+units metal
+# mass = grams/mole
+# distance = Angstroms
+# time = picoseconds
+# energy = eV
+# velocity = Angstroms/picosecond
+# force = eV/Angstrom
+# torque = eV
+# temperature = Kelvin
+# pressure = bars
+# dynamic viscosity = Poise
+# charge = multiple of electron charge (1.0 is a proton)
+# dipole = charge*Angstroms
+# electric field = volts/Angstrom
+# density = gram/cm^dim
+
+# ---------- environment
+dimension 3
+atom_style atomic
+boundary p p p
+neighbor 1 bin # extra distance 1 angstrom (after force cutoff)
+neigh_modify every 1 delay 5 check yes
+
+
+# ----------- import
+read_data graphene.data
+
+# ------------ variables
+variable seed equal 12345
+variable dt equal 0.001
+timestep ${dt}
+variable temp equal 300 # zero in celsius
+variable pressure equal 1
+variable kb equal 8.6173*10e-5 # in eV units
+
+# ---- groups
+group carbon type 1
+
+
+# ----------- potentials
+pair_style	tersoff
+pair_coeff	* * SiC.tersoff  C
+
+# ----------- velocities
+velocity all create ${temp} ${seed} dist gaussian mom yes rot yes
+
+# ---------- dump
+dump carbon_position carbon custom 100 carbon_relaxation.lammpstrj id type x y z
+thermo	 	500
+
+
+# --------- relax
+minimize 1e-4 1e-4 1000 1000
+
+fix		1 all nvt temp ${temp} ${temp} $(100.0*dt)
+fix		2 all langevin ${temp} ${temp} $(100.0*dt) ${seed}
+
+run 1000
+unfix 1
+unfix 2
+
